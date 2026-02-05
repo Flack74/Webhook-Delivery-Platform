@@ -43,7 +43,7 @@ func createEvent(c *gin.Context) {
 	// Will move to database.
 	events = append(events, newEvent)
 
-	// Return a 201 Created status with new event data
+	// Return a 202 Accepted status with new event data
 	c.JSON(http.StatusAccepted, gin.H{
 		"status": "accepted",
 	})
