@@ -1,8 +1,8 @@
 ## Project Status
 
-Phase 1 complete: Basic webhook ingestion and delivery.
+Phase 2 complete: Asynchronous webhook ingestion and delivery.
 
-The service accepts events via `POST /events`, validates the payload, and acknowledges receipt with `202 Accepted`.  
-Each event is synchronously delivered to a test webhook receiver, simulating an external consumer.
+The service accepts events via `POST /events`, validates the payload, and immediately responds with `202 Accepted`.  
+Events are enqueued in an in-memory queue and delivered asynchronously by a background worker to a test webhook receiver.
 
-Persistence, asynchronous processing, retries, and security will be added in later phases.
+Persistence, durable queues, retries, observability, and security features will be added in later phases.

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,13 +19,22 @@ type Data struct {
 	Email string `json:"email" binding:"required"`
 }
 
-var events []Event // Temporary in-memory storage (Phase 0 only)
+// Channel Queue
+var jobQueue = make(chan Event)
+
+func worker(jobQueue <-chan Event) {
+	for event := range jobQueue {
+		fmt.Println("Worker delivering event")
+		deliverWebhook(event)
+	}
+}
 
 func main() {
 	router := gin.Default()
-
 	// Register the POST endpoint
 	router.POST("/events", createEvent)
+
+	go worker(jobQueue)
 	// Run the server
 	router.Run("localhost:8000")
 }
@@ -42,15 +52,12 @@ func createEvent(c *gin.Context) {
 	}
 
 	// Will move to database.
-	events = append(events, newEvent)
+	jobQueue <- newEvent
 
 	// Return a 202 Accepted status with new event data
 	c.JSON(http.StatusAccepted, gin.H{
 		"status": "accepted",
 	})
-
-	// Trigger Webhook
-	deliverWebhook(newEvent)
 }
 
 func deliverWebhook(event Event) {
@@ -64,7 +71,7 @@ func deliverWebhook(event Event) {
 		return
 	}
 
-	req.Header.Set("Control-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
