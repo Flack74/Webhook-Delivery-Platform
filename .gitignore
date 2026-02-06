@@ -1,2 +1,68 @@
+# =========================
+# Go build artifacts
+# =========================
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Binaries (common names)
+app
+main
+server
+bin/
+dist/
+
+# =========================
+# Go workspace
+# =========================
+vendor/        # if you don't vendor deps
+/tmp/
+.coverage
+coverage.out
+coverage/
+
+# =========================
+# Environment & secrets
+# =========================
+.env
+.env.*
+config.local.*
+secrets/
+*.key
+*.pem
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# IDE / Editor files
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# =========================
+# OS-specific
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Go tooling cache (safety)
+# =========================
+.golangci.yml
+.golangci-lint.cache
+
+
 Research-n-study
 Architecture.md
+PHASES.md

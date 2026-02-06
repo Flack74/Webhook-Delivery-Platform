@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +25,6 @@ func main() {
 
 	// Register the POST endpoint
 	router.POST("/events", createEvent)
-
 	// Run the server
 	router.Run("localhost:8000")
 }
@@ -47,6 +48,30 @@ func createEvent(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{
 		"status": "accepted",
 	})
+
+	// Trigger Webhook
+	deliverWebhook(newEvent)
+}
+
+func deliverWebhook(event Event) {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	targetURL := "http://localhost:9000/webhook"
+	req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(payload))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set("Control-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 }
 
 /*
