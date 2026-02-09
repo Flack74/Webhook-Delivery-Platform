@@ -15,6 +15,7 @@ main
 server
 bin/
 dist/
+data
 
 # =========================
 # Go workspace
@@ -66,3 +67,4 @@ Thumbs.db
 Research-n-study
 Architecture.md
 PHASES.md
+useful-commands.txt

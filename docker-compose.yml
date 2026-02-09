@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: webhook-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME} # Database Name
+      POSTGRES_USER: ${DB_USER} # Database Username
+      POSTGRES_PASSWORD: ${DB_PASSWORD} # Database Password
+    ports:
+      - ${DB_PORT}:5432 # make sure you don't have another container running on DB_PORT
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${DB_NAME} -U $${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

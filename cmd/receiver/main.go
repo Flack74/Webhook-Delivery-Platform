@@ -47,7 +47,7 @@ func webhookHandler() http.Handler {
 
 		log.Printf("Received webhook payload %s\n", string(body))
 
-		// Unmarshaling and structs is commented cause webhook receivers should be schema-agnostic
+		// Unmarshaling and structs are commented cause webhook receivers should be schema-agnostic
 		// Unmarshal the JSON data into the payload struct
 		// var data Payload
 		// err = json.Unmarshal(body, &data)
