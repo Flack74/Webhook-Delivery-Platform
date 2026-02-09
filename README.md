@@ -1,8 +1,10 @@
 ## Project Status
 
-Phase 2 complete: Asynchronous webhook ingestion and delivery.
+**Phase 3 complete: Persistent webhook event storage**
 
-The service accepts events via `POST /events`, validates the payload, and immediately responds with `202 Accepted`.  
-Events are enqueued in an in-memory queue and delivered asynchronously by a background worker to a test webhook receiver.
+The service accepts events via `POST /events`, validates the payload, and responds with `202 Accepted`.  
+Each event is assigned a UUID and persisted in PostgreSQL with the payload stored as JSONB for flexibility and future processing.
 
-Persistence, durable queues, retries, observability, and security features will be added in later phases.
+The database schema is designed to support reliable webhook delivery, retries, and scalability in later phases.
+
+Next phases will introduce database-driven workers, durable delivery queues, retry/backoff logic, and webhook security (HMAC signing).
