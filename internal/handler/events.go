@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/Flack74/Webhook-Delivery-Platform/internal/queue"
 	"github.com/Flack74/Webhook-Delivery-Platform/internal/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -20,12 +21,16 @@ type Data struct {
 }
 
 type EventHandler struct {
-	eventRepo *repository.EventRepository
+	eventRepo     *repository.EventRepository
+	deliveryRepo  *repository.DeliveryRepository
+	deliveryQueue *queue.RedisQueue
 }
 
-func NewEventHandler(eventRepo *repository.EventRepository) *EventHandler {
+func NewEventHandler(eventRepo *repository.EventRepository, deliveryRepo *repository.DeliveryRepository, deliveryQueue *queue.RedisQueue) *EventHandler {
 	return &EventHandler{
-		eventRepo: eventRepo,
+		eventRepo:     eventRepo,
+		deliveryRepo:  deliveryRepo,
+		deliveryQueue: deliveryQueue,
 	}
 }
 
@@ -53,6 +58,27 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 		log.Printf("Unable to insert the payload to database!\n%v", err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	endpointURL := "http://localhost:9000/webhook"
+
+	// Push the event to the delivery queue
+	deliveryID, err := h.deliveryRepo.Insert(c, event_id, endpointURL)
+
+	if err != nil {
+		log.Printf("Unable to insert the delivery to database!\n%v", err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.deliveryQueue.Enqueue(c, deliveryID)
+
+	if err != nil {
+		log.Printf("Unable to enqueue the delivery to redis!\n%v", err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
 		return
 	}
 
