@@ -16,7 +16,6 @@
 - [Architecture](#-architecture)
 - [Tech Stack](#-tech-stack)
 - [Getting Started](#-getting-started)
-- [API Documentation](#-api-documentation)
 - [Database Schema](#-database-schema)
 - [Project Structure](#-project-structure)
 - [Development Phases](#-development-phases)
@@ -55,9 +54,12 @@ The **Webhook Delivery Platform** is a robust, system designed to reliably deliv
 - [x] **Docker Compose Setup** - One-command local development environment
 - [x] **Health Checks** - PostgreSQL readiness probes
 - [x] **Error Handling** - Comprehensive error responses
-- [x] **Redis Queue Integration** - Durable message queue for delivery jobs
-- [x] **Worker Pool** - Concurrent webhook delivery with goroutines
+- [x] **Redis Queue Integration** - Durable message queue with AOF persistence
+- [x] **Worker Pool** - 3 concurrent workers for parallel delivery
 - [x] **Asynchronous Processing** - Decoupled ingestion from delivery
+- [x] **Crash Recovery** - Automatic recovery of stalled jobs on restart
+- [x] **Reliable Queue Pattern** - BRPopLPush for atomic job processing
+- [x] **Job Acknowledgment** - Nack/Ack pattern for retry handling
 
 ### 🚧 Coming Soon
 
@@ -87,7 +89,7 @@ The **Webhook Delivery Platform** is a robust, system designed to reliably deliv
 │  │  • Generate UUID                                     │   │
 │  │  • Store in PostgreSQL                               │   │
 │  │  • Create delivery record                            │   │
-│  │  • Enqueue to Redis (Phase 4)                        │   │
+│  │  • Enqueue to Redis                                  │   │
 │  │  • Return 202 Accepted                               │   │
 │  └──────────────────────────────────────────────────────┘   │
 └────────────────────────┬────────────────────────────────────┘
@@ -109,19 +111,18 @@ The **Webhook Delivery Platform** is a robust, system designed to reliably deliv
                          │
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
-│              Redis Queue (Phase 4)                          │
-│  • Durable message queue                                    │
-│  • Worker pool consumes delivery jobs                       │
-│  • Retry scheduling with delays                             │
+│         Redis Queue (AOF Persistence Enabled)               │
+│  • BRPopLPush for reliable delivery                         │
+│  • Crash recovery on startup                                │
+│  • 3 concurrent workers                                     │
 └─────────────────────────────────────────────────────────────┘
                          │
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
-│              Worker Pool (Phase 4-5)                        │
+│              Worker Pool (3 Goroutines)                     │
 │  • Concurrent HTTP POST to customer endpoints               │
-│  • HMAC-SHA256 signing                                      │
-│  • Exponential backoff on failures                          │
-│  • Update delivery status                                   │
+│  • Ack on success / Nack on failure                         │
+│  • Update delivery status in PostgreSQL                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,11 +135,12 @@ The **Webhook Delivery Platform** is a robust, system designed to reliably deliv
 | **Language** | Go 1.25.6 | High-performance, concurrent backend |
 | **Web Framework** | Gin | Fast HTTP router and middleware |
 | **Database** | PostgreSQL 15 | Persistent event and delivery storage |
-| **Queue**  | Redis 7 | Durable message queue (Phase 4) |
+| **Queue**  | Redis 7 (AOF) | Durable message queue with persistence |
 | **Driver** | pgx/v5 | Native PostgreSQL driver with connection pooling |
 | **Containerization** | Docker & Docker Compose | Local development environment |
 | **JSON Handling** | encoding/json | Event payload serialization |
 | **UUID** | uuid | Unique event identifiers |
+| **Queue Pattern** | BRPopLPush | Reliable queue with crash recovery |
 
 ---
 
@@ -385,10 +387,12 @@ This project follows an incremental build approach, implementing one concept at 
 - Connection pooling with pgx
 
 ### ✅ Phase 4: Durable Queue (Complete)
-- Redis integration
-- Durable message queue
-- Worker pool consumes from Redis
-- Job acknowledgment
+- Redis integration with AOF persistence
+- Durable message queue (BRPopLPush pattern)
+- Worker pool (3 concurrent workers)
+- Job acknowledgment (Ack/Nack)
+- Crash recovery on startup
+- Enhanced error logging
 
 ### 📅 Phase 5: Retry & Backoff (Planned)
 - Exponential backoff algorithm

@@ -60,7 +60,9 @@ func (w *Worker) Start(ctx context.Context) {
 		}
 
 		if err := w.sendHTTP(event.Payload, delivery.EndpointURL); err != nil {
+			log.Printf("delivery failed: %v", err)
 			_ = w.deliveryRepo.MarkFailed(ctx, deliveryID)
+			_ = w.queue.Nack(ctx, deliveryID) // Return to queue for retry
 			continue
 		}
 

@@ -30,12 +30,17 @@ func main() {
 	// Create queue abstraction
 	deliveryQueue := queue.NewRedisQueue(redisClient, "deliveries_queue", "processing_queue")
 
+	// Recover any stalled jobs from previous crash
+	deliveryQueue.RecoverStalled(context.Background())
+
 	//  Initialize Event handler
 	eventHandler := handler.NewEventHandler(eventRepo, deliveryRepo, deliveryQueue)
 
-	// Initialize Worker
-	worker := worker.NewWorker(deliveryRepo, eventRepo, deliveryQueue)
-	go worker.Start(context.Background())
+	// Initialize Worker Pool (3 workers)
+	for i := 0; i < 3; i++ {
+		worker := worker.NewWorker(deliveryRepo, eventRepo, deliveryQueue)
+		go worker.Start(context.Background())
+	}
 
 	// Set up the routes
 	handler.SetUpRoutes(router, eventHandler)

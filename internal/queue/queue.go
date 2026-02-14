@@ -35,3 +35,26 @@ func (q *RedisQueue) Reserve(ctx context.Context) (string, error) {
 func (q *RedisQueue) Ack(ctx context.Context, deliveryID string) error {
 	return q.client.LRem(ctx, q.processingQueueName, 0, deliveryID).Err()
 }
+
+// Nack moves a job back to the main queue for retry
+func (q *RedisQueue) Nack(ctx context.Context, deliveryID string) error {
+	pipe := q.client.Pipeline()
+	pipe.LRem(ctx, q.processingQueueName, 0, deliveryID)
+	pipe.RPush(ctx, q.mainQueueName, deliveryID)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// RecoverStalled moves jobs from processing back to main queue (run on startup)
+func (q *RedisQueue) RecoverStalled(ctx context.Context) error {
+	for {
+		deliveryID, err := q.client.RPopLPush(ctx, q.processingQueueName, q.mainQueueName).Result()
+		if err != nil {
+			break
+		}
+		if deliveryID == "" {
+			break
+		}
+	}
+	return nil
+}
