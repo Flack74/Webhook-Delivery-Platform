@@ -30,7 +30,6 @@ coverage/
 # Environment & secrets
 # =========================
 .env
-.env.*
 config.local.*
 secrets/
 *.key
