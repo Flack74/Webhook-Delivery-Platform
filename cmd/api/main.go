@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/Flack74/Webhook-Delivery-Platform/internal/handler"
 	"github.com/Flack74/Webhook-Delivery-Platform/internal/queue"
@@ -14,7 +15,10 @@ import (
 
 func main() {
 	router := gin.Default()
-	godotenv.Load()
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("Warning: .env file not loaded, using system env")
+	}
 
 	// SetUp Posgtres connection
 	pool := repository.SetUpPostgresConn()
