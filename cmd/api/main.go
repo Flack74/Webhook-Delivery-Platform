@@ -41,7 +41,7 @@ func main() {
 	eventHandler := handler.NewEventHandler(eventRepo, deliveryRepo, deliveryQueue)
 
 	// Initialize Worker Pool (3 workers)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		worker := worker.NewWorker(deliveryRepo, eventRepo, deliveryQueue)
 		go worker.Start(context.Background())
 	}
