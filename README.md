@@ -60,43 +60,43 @@ Producer App -> API (Gin) -> PostgreSQL -> Redis Queue -> Worker Pool -> Custome
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    Producer Application / Tenant                    │
-│     Creates an application, receives API key, sends event data      │
+│                    Producer Application / Tenant                     │
+│     Creates an application, receives API key, sends event data       │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
                                 ↓
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         API Service (Gin)                           │
-│  POST /v1/applications                                              │
-│  POST /v1/applications/:id/api-keys                                 │
-│  POST /v1/applications/:id/endpoints                                │
-│  POST /v1/events                                                    │
-│  • Validate Bearer API key                                          │
-│  • Validate request payload                                         │
-│  • Enforce idempotency per application                              │
-│  • Persist event and delivery rows                                  │
-│  • Enqueue delivery IDs to Redis                                    │
-│  • Return 202 Accepted                                              │
+│                         API Service (Gin)                            │
+│  POST /v1/applications                                               │
+│  POST /v1/applications/:id/api-keys                                  │
+│  POST /v1/applications/:id/endpoints                                 │
+│  POST /v1/events                                                     │
+│  • Validate Bearer API key                                           │
+│  • Validate request payload                                          │
+│  • Enforce idempotency per application                               │
+│  • Persist event and delivery rows                                   │
+│  • Enqueue delivery IDs to Redis                                     │
+│  • Return 202 Accepted                                               │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
                                 ↓
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    PostgreSQL (Source of Truth)                     │
-│  • Applications                                                     │
-│  • API keys (hashed)                                                │
-│  • Endpoints                                                        │
-│  • Events                                                           │
-│  • Deliveries                                                       │
-│  • Delivery attempts                                                │
+│                    PostgreSQL (Source of Truth)                      │
+│  • Applications                                                      │
+│  • API keys (hashed)                                                 │
+│  • Endpoints                                                         │
+│  • Events                                                            │
+│  • Deliveries                                                        │
+│  • Delivery attempts                                                 │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
                                 ↓
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         Redis Queue Layer                           │
-│  • Main queue                                                       │
-│  • Processing queue                                                 │
-│  • Delayed retry sorted set                                         │
-│  • Startup recovery for stalled jobs                                │
+│                         Redis Queue Layer                            │
+│  • Main queue                                                        │
+│  • Processing queue                                                  │
+│  • Delayed retry sorted set                                          │
+│  • Startup recovery for stalled jobs                                 │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
                                 ↓
