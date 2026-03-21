@@ -4,7 +4,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    api_key_hash TEXT UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     is_active BOOLEAN DEFAULT TRUE
@@ -32,7 +31,7 @@ CREATE TABLE events (
     application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
     event_type TEXT NOT NULL,
     payload JSONB NOT NULL,
-    idempotency_key TEXT,
+    idempotency_key TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
 
     UNIQUE(application_id, idempotency_key)
@@ -64,9 +63,10 @@ CREATE TABLE deliveries (
             )
         ),
 
-    attempt_count INTEGER DEFAULT 0,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
     next_retry_at TIMESTAMPTZ,
     last_error TEXT,
+    max_attempts INTEGER NOT NULL DEFAULT 5,
 
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),

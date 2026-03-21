@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 
 	"github.com/Flack74/Webhook-Delivery-Platform/internal/queue"
@@ -10,24 +10,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Event struct {
-	EventType string `json:"event_type" binding:"required"`
-	Data      Data   `json:"data" binding:"required"`
+type CreateEventRequest struct {
+	EventType string          `json:"event_type" binding:"required,min=3,max=255"`
+	Data      json.RawMessage `json:"data" binding:"required"`
 }
 
-type Data struct {
-	ID    string `json:"id" binding:"required"`
-	Email string `json:"email" binding:"required"`
+type CreateEventResponse struct {
+	Status           string `json:"status"`
+	EventID          string `json:"event_id"`
+	DeliveriesQueued int    `json:"deliveries_queued"`
 }
 
 type EventHandler struct {
+	endpointRepo  *repository.EndpointRepository
 	eventRepo     *repository.EventRepository
 	deliveryRepo  *repository.DeliveryRepository
 	deliveryQueue *queue.RedisQueue
 }
 
-func NewEventHandler(eventRepo *repository.EventRepository, deliveryRepo *repository.DeliveryRepository, deliveryQueue *queue.RedisQueue) *EventHandler {
+func NewEventHandler(
+	endpointRepo *repository.EndpointRepository,
+	eventRepo *repository.EventRepository,
+	deliveryRepo *repository.DeliveryRepository,
+	deliveryQueue *queue.RedisQueue,
+) *EventHandler {
 	return &EventHandler{
+		endpointRepo:  endpointRepo,
 		eventRepo:     eventRepo,
 		deliveryRepo:  deliveryRepo,
 		deliveryQueue: deliveryQueue,
@@ -35,56 +43,63 @@ func NewEventHandler(eventRepo *repository.EventRepository, deliveryRepo *reposi
 }
 
 func (h *EventHandler) CreateEvent(c *gin.Context) {
-	var newEvent Event
-
-	// Bind the incoming JSON to the newEvent struct.
-	// Gin automatically validates based on "binding:required" tags.
-	if err := c.ShouldBindJSON(&newEvent); err != nil {
-		// If binding fails, return a 400 Bad Request error
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	applicationID, ok := authenticatedApplicationID(c)
+	if !ok {
 		return
 	}
 
-	// Serialize the data to JSON format
-	payload, err := json.Marshal(newEvent.Data)
+	idempotencyKey := c.GetHeader("Idempotency-Key")
+	if idempotencyKey == "" {
+		respondError(c, http.StatusBadRequest, "Idempotency-Key header is required")
+		return
+	}
+
+	var req CreateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	eventID, err := h.eventRepo.Insert(
+		c.Request.Context(),
+		applicationID,
+		req.EventType,
+		req.Data,
+		idempotencyKey,
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondRepositoryError(c, err)
 		return
 	}
 
-	// Will move to database.
-	event_id, err := h.eventRepo.Insert(c, newEvent.EventType, payload)
+	endpoints, err := h.endpointRepo.ListActiveByApplicationID(c.Request.Context(), applicationID)
 	if err != nil {
-		log.Printf("Unable to insert the payload to database!\n%v", err)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondRepositoryError(c, err)
 		return
 	}
 
-	endpointURL := "http://localhost:9000/webhook"
+	enqueuedCount := 0
+	for _, endpoint := range endpoints {
+		deliveryID, err := h.deliveryRepo.Insert(c.Request.Context(), eventID, endpoint.ID)
+		if err != nil {
+			if errors.Is(err, repository.ErrDeliveryAlreadyExists) {
+				continue
+			}
+			respondRepositoryError(c, err)
+			return
+		}
 
-	// Push the event to the delivery queue
-	deliveryID, err := h.deliveryRepo.Insert(c, event_id, endpointURL)
+		if err := h.deliveryQueue.Enqueue(c.Request.Context(), deliveryID); err != nil {
+			respondError(c, http.StatusInternalServerError, "failed to enqueue delivery")
+			return
+		}
 
-	if err != nil {
-		log.Printf("Unable to insert the delivery to database!\n%v", err)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		enqueuedCount++
 	}
 
-	err = h.deliveryQueue.Enqueue(c, deliveryID)
-
-	if err != nil {
-		log.Printf("Unable to enqueue the delivery to redis!\n%v", err)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"err": err.Error()})
-		return
-	}
-
-	// Return a 202 Accepted status with new event data
-	c.JSON(http.StatusAccepted, gin.H{
-		"status":   "accepted",
-		"event_id": event_id,
+	c.JSON(http.StatusAccepted, CreateEventResponse{
+		Status:           "accepted",
+		EventID:          eventID,
+		DeliveriesQueued: enqueuedCount,
 	})
 }
